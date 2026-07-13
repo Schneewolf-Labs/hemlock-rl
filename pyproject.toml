@@ -12,10 +12,8 @@ requires-python = ">=3.10"
 # NOTE: torch is intentionally excluded — it's version/CUDA-specific and
 # users must install it themselves (same policy as grimoire).
 dependencies = [
-    # grimoire >= 2.0.0 (GRPOMethod + tokenize_grpo metadata passthrough,
-    # the latter pending grimoire's online-rl-training-ideas PR); switch to
-    # "grimoire-rl>=2.0.0" once it lands on PyPI (latest release is 1.2.0).
-    "grimoire-rl @ git+https://github.com/Schneewolf-Labs/grimoire.git@main",
+    # GRPOMethod + the tokenize_grpo metadata passthrough landed in 2.0.0.
+    "grimoire-rl>=2.0.0",
     "datasets>=2.14.0",
     "transformers>=4.40.0",
 ]
