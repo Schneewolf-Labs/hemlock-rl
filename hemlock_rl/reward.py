@@ -1,12 +1,10 @@
 """Execution-based reward for Hemlock programs.
 
-Grades completions by outcome: no code < timeout < error < runs < runs with
-output. GRPO normalizes advantages within each group of G completions, so the
-tiers stay spread — a group that all lands on one tier yields ~zero gradient
-(critical early in training, when everything fails).
-
-This scores *validity* (does it run?), not *correctness* (does it do the
-right thing?) — see the README for correctness-reward options.
+Graded validity by default; correctness when metadata carries expected_stdout
+(via grimoire's tokenize_grpo(metadata_fields=["expected_stdout"])). GRPO
+normalizes advantages within each group of G completions, so the tiers stay
+spread — a group that all lands on one tier yields ~zero gradient (critical
+early in training, when everything fails).
 """
 
 import concurrent.futures
@@ -24,8 +22,9 @@ MAX_WORKERS = 8
 R_NO_CODE = -1.0       # no extractable code (refusal, prose)
 R_TIMEOUT = -1.0       # ran past EXEC_TIMEOUT_S
 R_ERROR = -0.5         # parse or runtime error
-R_RUNS = 0.5           # exits 0 but prints nothing
-R_RUNS_OUTPUT = 1.0    # exits 0 and prints something
+R_RUNS = 0.5           # exits 0 (correctness path: but wrong output)
+R_RUNS_OUTPUT = 1.0    # exits 0 and prints something (validity path only)
+R_CORRECT = 2.0        # exits 0 and stdout matches expected_stdout
 
 _FENCE = re.compile(r"```(?:hemlock|hml|hm)?\s*\n(.*?)```", re.DOTALL)
 
@@ -59,7 +58,7 @@ def run_hemlock(code):
         return result.returncode, result.stdout
 
 
-def _score(completion):
+def _score(completion, meta=None):
     code = extract_code(completion)
     if code is None:
         return R_NO_CODE
@@ -68,17 +67,26 @@ def _score(completion):
         return R_TIMEOUT
     if rc != 0:
         return R_ERROR
+    if meta and meta.get("expected_stdout") is not None:
+        # Correctness path — only for deterministic expected output.
+        return R_CORRECT if out.strip() == meta["expected_stdout"].strip() else R_RUNS
+    # Validity path — reward producing output over silent success.
     return R_RUNS_OUTPUT if out.strip() else R_RUNS
 
 
 class HemlockExecutionReward:
-    """grimoire GRPOMethod reward_fn: (prompts, completions) -> list[float].
+    """grimoire online-method reward_fn: (prompts, completions[, metadata]) -> list[float].
+
+    metadata (one dict per completion, from tokenize_grpo(metadata_fields=...))
+    switches rows with an expected_stdout onto the correctness path; rows
+    without one fall back to graded validity.
 
     Executions run in a thread pool — the work is subprocess-bound, so
     threads parallelize it fine and the (synchronous) rollout doesn't stall
     the GPU on serial subprocess waits.
     """
 
-    def __call__(self, prompts, completions):
+    def __call__(self, prompts, completions, metadata=None):
+        metas = metadata if metadata is not None else [None] * len(completions)
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-            return list(pool.map(_score, completions))
+            return list(pool.map(lambda a: _score(*a), zip(completions, metas)))

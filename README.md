@@ -32,8 +32,9 @@ grades by outcome:
 | no extractable code | -1.0 |
 | timeout (5s) | -1.0 |
 | parse / runtime error | -0.5 |
-| exits 0, no output | 0.5 |
-| exits 0, prints output | 1.0 |
+| exits 0, no output (or wrong output on the correctness path) | 0.5 |
+| exits 0, prints output (validity path) | 1.0 |
+| exits 0, stdout matches `expected_stdout` (correctness path) | 2.0 |
 
 The tiers stay spread on purpose: GRPO normalizes advantages within each group
 of G completions, so a group that all lands on one tier gives ~zero gradient —
@@ -68,19 +69,16 @@ Notes:
 
 ## Validity vs. correctness
 
-The default reward scores **validity** (does it run?), not **correctness**
-(does it do the right thing?). A model can farm validity with trivial valid
-programs. Mitigations:
+Without an expected output the reward scores **validity** (does it run?), and
+a model can farm that with trivial valid programs — keep `--beta` high so the
+policy stays near a Hemlock-capable base model.
 
-- **Warmup + KL**: use validity as a warmup phase and keep `--beta` high so
-  the policy stays near a Hemlock-capable base model.
-- **Embed the spec in the prompt**: grimoire's `reward_fn` is 2-arg
-  `(prompts, completions)` — there is no per-row metadata channel. To reward
-  against expected output or tests, put the spec in the prompt text and parse
-  it back out of `prompts` inside a custom reward.
-- A metadata passthrough in grimoire (`tokenize_grpo`/`GRPOCollator` carrying
-  extra columns through to a 3-arg `reward_fn`) would make correctness rewards
-  clean — a small, separable grimoire PR if needed.
+With a dataset that has an `expected_stdout` column, grimoire's metadata
+passthrough (`tokenize_grpo(metadata_fields=["expected_stdout"])`) carries it
+to the reward, which scores **correctness**: exits 0 with exactly matching
+stripped stdout earns 2.0, running with wrong output drops to 0.5. Rows
+without an expected output fall back to graded validity, so mixed datasets
+work fine. Only use `expected_stdout` for deterministic programs.
 
 ## Tests
 

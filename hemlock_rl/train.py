@@ -53,7 +53,13 @@ def main():
     if args.max_examples:
         dataset = dataset.select(range(min(args.max_examples, len(dataset))))
     dataset = dataset.map(
-        lambda x: tokenize_grpo(x, tokenizer, max_prompt_length=args.max_prompt_length),
+        lambda x: tokenize_grpo(
+            x, tokenizer,
+            max_prompt_length=args.max_prompt_length,
+            # Carried through to the reward: rows with an expected_stdout are
+            # scored for correctness, the rest for graded validity.
+            metadata_fields=["expected_stdout"],
+        ),
         remove_columns=dataset.column_names,
     )
 

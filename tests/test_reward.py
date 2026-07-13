@@ -4,6 +4,7 @@ import pytest
 
 from hemlock_rl.reward import (
     HEMLOCK_BIN,
+    R_CORRECT,
     R_ERROR,
     R_NO_CODE,
     R_RUNS,
@@ -94,6 +95,21 @@ class TestHemlockExecutionReward:
         reward = HemlockExecutionReward()
         scores = reward(["p"], [f"```\n{LOOP_PROGRAM}\n```"])
         assert scores == [R_TIMEOUT]
+
+    def test_correctness_path_with_metadata(self):
+        reward = HemlockExecutionReward()
+        completions = [f"```\n{GOOD_PROGRAM}\n```", f"```\n{GOOD_PROGRAM}\n```"]
+        metadata = [
+            {"expected_stdout": "hello from hemlock"},   # match -> R_CORRECT
+            {"expected_stdout": "something else"},        # runs, wrong -> R_RUNS
+        ]
+        scores = reward(["p", "p"], completions, metadata)
+        assert scores == [R_CORRECT, R_RUNS]
+
+    def test_none_expected_stdout_falls_back_to_validity(self):
+        reward = HemlockExecutionReward()
+        scores = reward(["p"], [f"```\n{GOOD_PROGRAM}\n```"], [{"expected_stdout": None}])
+        assert scores == [R_RUNS_OUTPUT]
 
     def test_batch_order_preserved(self):
         reward = HemlockExecutionReward()
