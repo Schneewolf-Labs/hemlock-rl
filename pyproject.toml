@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hemlock-rl"
+version = "0.2.0"
+description = "Train LLMs to write Hemlock via execution rewards (GRPO through grimoire)"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+# NOTE: torch is intentionally excluded — it's version/CUDA-specific and
+# users must install it themselves (same policy as grimoire).
+dependencies = [
+    # GRPOMethod + the tokenize_grpo metadata passthrough landed in 2.0.0.
+    "grimoire-rl>=2.0.0",
+    "datasets>=2.14.0",
+    "transformers>=4.40.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "ruff>=0.1.0"]
+
+[project.urls]
+Homepage = "https://github.com/Schneewolf-Labs/hemlock-rl"
+
+[tool.setuptools]
+packages = ["hemlock_rl"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
