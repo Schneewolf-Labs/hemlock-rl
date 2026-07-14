@@ -35,7 +35,8 @@ class RewardLogger(TrainerCallback):
     def on_step_end(self, trainer, step, loss, metrics):
         parts = [f"step {step}", f"loss {loss:.4f}"]
         parts += [f"{k} {metrics[k]:.3f}" for k in self.KEYS if k in metrics]
-        print(" | ".join(parts))
+        # flush: stdout is block-buffered when redirected to a log file
+        print(" | ".join(parts), flush=True)
 
 
 def build_method(args, tokenizer):
@@ -98,6 +99,8 @@ def parse_args():
     parser.add_argument("--num-epochs", type=int, default=1)
     parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
     parser.add_argument("--mixed-precision", default="bf16", choices=["no", "fp16", "bf16"])
+    parser.add_argument("--wandb", nargs="?", const="hemlock-rl", default=None, metavar="PROJECT",
+                        help="log to Weights & Biases (optional project name)")
     return parser.parse_args()
 
 
@@ -125,6 +128,9 @@ def main():
 
     dataset = load_prompts(args.dataset, split=args.split, tokenizer=tokenizer)
     if args.max_examples:
+        # shuffle first: hemlang datasets are ordered by category, and a head
+        # slice would train on a single task family
+        dataset = dataset.shuffle(seed=42)
         dataset = dataset.select(range(min(args.max_examples, len(dataset))))
     dataset = dataset.map(
         lambda x: tokenize_grpo(
@@ -145,6 +151,8 @@ def main():
         learning_rate=args.learning_rate,
         mixed_precision=args.mixed_precision,
         logging_steps=1,
+        log_with="wandb" if args.wandb else None,
+        project_name=args.wandb,
     )
 
     # Online rollouts call model.generate(), which needs full weight access:

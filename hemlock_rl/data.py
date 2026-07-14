@@ -71,7 +71,11 @@ def load_prompts(
     (e.g. Hemlock-SFT's "docs"): under execution rewards those prompts
     actively teach the model to answer questions with code.
     """
-    ds = load_dataset(dataset_name, split=split)
+    if dataset_name.endswith((".json", ".jsonl")):
+        # local file, e.g. produced by `python -m hemlock_rl.prepare`
+        ds = load_dataset("json", data_files=dataset_name, split="train")
+    else:
+        ds = load_dataset(dataset_name, split=split)
     if exclude_categories and category_field in ds.column_names:
         excluded = set(exclude_categories)
         ds = ds.filter(lambda x: x[category_field] not in excluded)
