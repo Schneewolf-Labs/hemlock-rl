@@ -96,6 +96,9 @@ def parse_args():
     parser.add_argument("--lora-alpha", type=int, default=32)
     parser.add_argument("--batch-size", type=int, default=4, help="Prompts per step (completions = this * G)")
     parser.add_argument("--learning-rate", type=float, default=1e-6)
+    parser.add_argument("--lr-scheduler", default="cosine",
+                        choices=["linear", "cosine", "constant", "constant_with_warmup"],
+                        help="constant keeps learning when long runs would otherwise decay to zero")
     parser.add_argument("--num-epochs", type=int, default=1)
     parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
     parser.add_argument("--mixed-precision", default="bf16", choices=["no", "fp16", "bf16"])
@@ -150,6 +153,7 @@ def main():
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=args.learning_rate,
         mixed_precision=args.mixed_precision,
+        lr_scheduler=args.lr_scheduler,
         logging_steps=1,
         log_with="wandb" if args.wandb else None,
         project_name=args.wandb,
