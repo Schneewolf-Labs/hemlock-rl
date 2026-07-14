@@ -35,8 +35,22 @@ class TestExtractCode:
         text = f"```\n{GOOD_PROGRAM}\n```"
         assert extract_code(text) == GOOD_PROGRAM
 
-    def test_first_fence_wins(self):
+    def test_tagged_fence_wins_over_untagged(self):
         text = f"```hml\n{GOOD_PROGRAM}\n```\n```\n{BAD_PROGRAM}\n```"
+        assert extract_code(text) == GOOD_PROGRAM
+
+    def test_tagged_fence_wins_over_echoed_source(self):
+        """Translation prompts: the model may echo the source program first —
+        grade the hemlock answer, not the echo."""
+        text = (
+            "```javascript\nconsole.log('hi');\n```\n"
+            f"Here it is in Hemlock:\n```hemlock\n{GOOD_PROGRAM}\n```"
+        )
+        assert extract_code(text) == GOOD_PROGRAM
+
+    def test_untagged_fences_take_the_last(self):
+        """Without tags, the answer is the last block (echo comes first)."""
+        text = f"```\n{BAD_PROGRAM}\n```\nNow in Hemlock:\n```\n{GOOD_PROGRAM}\n```"
         assert extract_code(text) == GOOD_PROGRAM
 
     def test_raw_code_passes_through(self):

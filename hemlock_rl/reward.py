@@ -26,15 +26,24 @@ R_RUNS = 0.5           # exits 0 (correctness path: but wrong output)
 R_RUNS_OUTPUT = 1.0    # exits 0 and prints something (validity path only)
 R_CORRECT = 2.0        # exits 0 and stdout matches expected_stdout
 
-_FENCE = re.compile(r"```(?:hemlock|hml|hm)?\s*\n(.*?)```", re.DOTALL)
+_FENCE_HEMLOCK = re.compile(r"```(?:hemlock|hml|hm)\s*\n(.*?)```", re.DOTALL)
+_FENCE_ANY = re.compile(r"```[^\n]*\n(.*?)```", re.DOTALL)
 
 
 def extract_code(text):
-    """Pull Hemlock source out of a completion: first fenced block, else the
-    raw text unless it looks like prose."""
-    m = _FENCE.findall(text)
+    """Pull Hemlock source out of a completion.
+
+    Preference order: first hemlock-tagged fence, else the LAST fence of any
+    kind, else the raw text unless it looks like prose. Translation prompts
+    embed the source program in a fence, and models often echo it before
+    answering — the answer is the last block, the echo is the first.
+    """
+    m = _FENCE_HEMLOCK.findall(text)
     if m:
         return m[0].strip()
+    m = _FENCE_ANY.findall(text)
+    if m:
+        return m[-1].strip()
     s = text.strip()
     if not s or s.splitlines()[0].lower().startswith(("here", "this", "the ", "sure", "to ")):
         return None
